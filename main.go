@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	crand "crypto/rand"
 	"flag"
 	"fmt"
 	"io"
@@ -11,24 +12,43 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
+	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	net "github.com/libp2p/go-libp2p-core/network"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	peerstore "github.com/libp2p/go-libp2p-core/peerstore"
+	quic "github.com/libp2p/go-libp2p-quic-transport"
+	tcp "github.com/libp2p/go-tcp-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 func main() {
-	listenF := flag.Int("l", 0, "wait for incoming connections")
+	idSeed := flag.Int("seed", 0, "seed for generating peer identity")
+	listenF := flag.Int("lport", 0, "wait for incoming connections on given tcp port")
+	laddr := flag.String("laddr", "", "wait for incoming connections on given multiaddr")
+
 	target := flag.String("d", "", "target peer to dial")
 	//secio := flag.Bool("secio", false, "enable secio")
 
 	flag.Parse()
 
-	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", *listenF)
+	ir := crand.Reader
+	if *idSeed != 0 {
+		ir = rand.New(rand.NewSource(int64(*idSeed)))
+	}
+
+	priv, _, err := crypto.GenerateRSAKeyPair(2048, ir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *listenF)
+	if *laddr != "" {
+		listenaddr = *laddr
+	}
 
 	ctx := context.Background()
 
-	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings(listenaddr))
+	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings(listenaddr), libp2p.Identity(priv), libp2p.Transport(quic.NewTransport), libp2p.Transport(tcp.NewTCPTransport))
 	if err != nil {
 		log.Fatal(err)
 	}
