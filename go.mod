@@ -1,4 +1,4 @@
-module github.com/whyrusleeping/p2pc
+module github.com/whyrusleeping/p2pbnch
 
 go 1.13
 
